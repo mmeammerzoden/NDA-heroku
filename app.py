@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
-# Split NDA_TEXT into body and signature section
 NDA_BODY = """
 Non-Disclosure Agreement
 This Non-Disclosure Agreement (this "Agreement") is made as of April 3, 2024, between MME Houdstermaatschappij, a private company organized under the laws of the Netherlands, whose address is Wordragensestraat 36B, 5324 JM Ammerzoden, The Netherlands ("MME"), and {company_name}, a private company organized under the laws of the Netherlands, whose address is {full_address}, The Netherlands ("Recipient"). The following legal entities (and their respective affiliates) shall be deemed to be affiliates of MME: MME Ammerzoden B.V., Mycelium Materials Europe B.V., MME Horst B.V. and Kineco B.V.
@@ -58,6 +57,53 @@ IN WITNESS WHEREOF, the parties hereto have executed this Non-Disclosure Agreeme
 MME Houdstermaatschappij B.V.: Bert Rademakers, CEO
 {company_name}: {name}, {title}
 """
+
+def format_nda_for_html(company_name, full_address, name, title):
+    # Format NDA body for HTML
+    nda_body_formatted = NDA_BODY.format(
+        company_name=company_name,
+        full_address=full_address,
+        name=name,
+        title=title
+    )
+    # Split into sections and add HTML tags
+    sections = nda_body_formatted.split('\n\n')
+    html_nda = '<h2>Non-Disclosure Agreement</h2>'
+    
+    # Introductory paragraphs
+    for i, section in enumerate(sections[:3]):
+        if i == 0:  # Title
+            continue  # Already added as h2
+        html_nda += f'<p>{section}</p>'
+    
+    # Numbered clauses
+    html_nda += '<ol>'
+    for section in sections[3:-1]:  # Skip intro and last paragraph
+        if section.strip():
+            # Handle sub-items (i, ii, iii, iv)
+            if section.startswith('   (i)'):
+                sub_items = section.split('\n   ')
+                html_nda += '<ol type="i">'
+                for sub_item in sub_items:
+                    if sub_item.strip():
+                        html_nda += f'<li>{sub_item.strip()}</li>'
+                html_nda += '</ol>'
+            else:
+                html_nda += f'<li>{section}</li>'
+    html_nda += '</ol>'
+    
+    # Last paragraph
+    html_nda += f'<p>{sections[-1]}</p>'
+    
+    # Signature section
+    signature_formatted = SIGNATURE_SECTION.format(
+        company_name=company_name,
+        name=name,
+        title=title
+    )
+    html_nda += '<p>' + signature_formatted.replace('\n', '<br>') + '</p>'
+    
+    return html_nda
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -107,28 +153,20 @@ def index():
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font("Arial", size=10)
-            # Add NDA body and initial info
             pdf.multi_cell(0, 5, f"Non-Disclosure Agreement\n\nSigned by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}\n\n{customized_nda_body}")
             pdf.ln(5)
-            
-            # Add "IN WITNESS WHEREOF" and Bert's name
-            pdf.multi_cell(0, 5, customized_signature_section.split('\n')[0])  # "IN WITNESS WHEREOF..."
+            pdf.multi_cell(0, 5, customized_signature_section.split('\n')[0])
             pdf.cell(0, 5, "MME Houdstermaatschappij B.V.: Bert Rademakers, CEO", ln=True)
-            
-            # Add Bert's signature
             bert_signature_path = os.path.join(app.root_path, 'static', 'bert_signature.png')
             if not os.path.exists(bert_signature_path):
                 logger.error(f"Bert's signature file not found at: {bert_signature_path}")
                 raise FileNotFoundError(f"Bert's signature file missing: {bert_signature_path}")
             logger.info(f"Loading Bert's signature from: {bert_signature_path}")
             pdf.image(bert_signature_path, x=10, y=pdf.get_y(), w=50)
-            pdf.ln(20)  # Space between Bert's signature and client's info
-            
-            # Add client's info and signature
+            pdf.ln(20)
             pdf.cell(0, 5, f"{business}: {name}, {title}", ln=True)
             pdf.image(signature_path, x=10, y=pdf.get_y(), w=50)
-            pdf.ln(10)  # Space after client's signature
-            
+            pdf.ln(10)
             pdf_file = f"nda_{name}.pdf"
             pdf.output(pdf_file)
             logger.info(f"PDF generated: {pdf_file}")
@@ -156,7 +194,9 @@ def index():
         else:
             return "NDA signed, but email sending failed. Please contact support.", 200
 
-    return render_template("index.html", nda_text=NDA_BODY.format(company_name="COMPANY NAME", full_address="FULL ADDRESS", name="NAME", title="TITLE") + SIGNATURE_SECTION.format(company_name="COMPANY NAME", name="NAME", title="TITLE"))
+    # Format NDA for HTML display
+    nda_html = format_nda_for_html("COMPANY NAME", "FULL ADDRESS", "NAME", "TITLE")
+    return render_template("index.html", nda_text=nda_html)
 
 def send_email(to_email, subject, body, attachment):
     if not EMAIL_ADDRESS or not EMAIL_PASSWORD:

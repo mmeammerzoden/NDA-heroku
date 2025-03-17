@@ -2,7 +2,7 @@ from flask import Flask, request, render_template
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from fpdf import FPDF
+from fpdf2 import FPDF
 import base64
 from io import BytesIO
 from PIL import Image
@@ -11,8 +11,8 @@ import os
 app = Flask(__name__)
 
 # Email configuration from environment variables
-EMAIL_ADDRESS = os.getenv("mme.ammerzoden.nda@gmail.com")
-EMAIL_PASSWORD = os.getenv("ubil wwbk tfjl hyut")
+EMAIL_ADDRESS = os.getenv("nda@myceliummaterials.eu")
+EMAIL_PASSWORD = os.getenv("Y~qGw0XTcl?nBr9{")
 
 # Your NDA text
 NDA_TEXT = """
@@ -84,7 +84,7 @@ def index():
         signature_path = f"signature_{name}.png"
         signature_img.save(signature_path, "PNG")
 
-        # Generate PDF
+        # Generate PDF with fpdf2
         pdf = FPDF()
         pdf.add_page()
         pdf.set_font("Arial", size=10)
@@ -104,6 +104,13 @@ def index():
     return render_template("index.html", nda_text=NDA_TEXT.format(company_name="COMPANY NAME", full_address="FULL ADDRESS", name="NAME", title="TITLE"))
 
 def send_email(to_email, subject, body, attachment):
+    if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
+        raise ValueError(f"Email credentials missing: EMAIL_ADDRESS={EMAIL_ADDRESS}, EMAIL_PASSWORD={'set' if EMAIL_PASSWORD else 'not set'}")
+
+    # SMTP server configuration (replace with your details)
+    SMTP_HOST = "server104.yourhosting.nl"  # Replace with your SMTP host
+    SMTP_PORT = 587  # Replace with your SMTP port (587 for TLS, 465 for SSL)
+
     msg = MIMEMultipart()
     msg["From"] = EMAIL_ADDRESS
     msg["To"] = to_email
@@ -115,10 +122,19 @@ def send_email(to_email, subject, body, attachment):
         part.add_header("Content-Disposition", f"attachment; filename={attachment}")
         msg.attach(part)
 
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
+    try:
+        # Use TLS (port 587 typically)
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.ehlo()  # Initial handshake
+        server.starttls()  # Enable TLS encryption
+        server.ehlo()  # Re-handshake after TLS
         server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
         server.send_message(msg)
+        server.quit()
+    except smtplib.SMTPAuthenticationError as e:
+        raise Exception(f"Authentication failed: {str(e)}")
+    except smtplib.SMTPException as e:
+        raise Exception(f"SMTP error: {str(e)}")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))  # Use Heroku's dynamic port, default to 5000 locally

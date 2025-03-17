@@ -25,7 +25,7 @@
         <input type="text" id="title" name="title" required><br>
         
         <h2>Non-Disclosure Agreement</h2>
-        <div class="nda-box">{{ nda_text }}</div>
+        <div class="nda-box">{{ nda_text | safe }}</div>
         
         <label><input type="checkbox" name="accept" required> I accept the NDA</label><br>
         

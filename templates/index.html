@@ -7,6 +7,10 @@
 </head>
 <body>
     <h1>Sign the NDA</h1>
+    <div>
+        <h2>Non-Disclosure Agreement</h2>
+        <pre>{{ nda_text }}</pre> <!-- Display NDA text -->
+    </div>
     <form method="POST" action="/" id="nda-form">
         <label>Name: <input type="text" name="name" required></label><br>
         <label>Email: <input type="email" name="email" required></label><br>
@@ -26,7 +30,6 @@
         var canvas = document.getElementById('signature-canvas');
         var signaturePad = new SignaturePad(canvas);
 
-        // Adjust canvas size on load
         window.addEventListener('load', function () {
             canvas.width = canvas.offsetWidth;
             canvas.height = canvas.offsetHeight;
@@ -42,7 +45,7 @@
                 e.preventDefault();
             } else {
                 document.getElementById('signature-data').value = signaturePad.toDataURL('image/png');
-                console.log("Signature captured:", document.getElementById('signature-data').value.substring(0, 50)); // Debug
+                console.log("Signature captured:", document.getElementById('signature-data').value.substring(0, 50));
             }
         });
     </script>

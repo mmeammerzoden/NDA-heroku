@@ -108,7 +108,7 @@ def send_email(to_email, subject, body, attachment):
         raise ValueError(f"Email credentials missing: EMAIL_ADDRESS={EMAIL_ADDRESS}, EMAIL_PASSWORD={'set' if EMAIL_PASSWORD else 'not set'}")
 
     # SMTP server configuration (replace with your details)
-    SMTP_HOST = "server104.yourhosting.nl"  # Replace with your SMTP host
+    SMTP_HOST = "mail.yourdomain.com"  # Replace with your SMTP host
     SMTP_PORT = 587  # Replace with your SMTP port (587 for TLS, 465 for SSL)
 
     msg = MIMEMultipart()
@@ -119,7 +119,9 @@ def send_email(to_email, subject, body, attachment):
 
     with open(attachment, "rb") as f:
         part = MIMEText(f.read(), "base64", "utf-8")
-        part.add_header("Content-Disposition", f"attachment; filename={attachment}")
+        # Explicitly set filename with .pdf extension
+        filename = os.path.basename(attachment)  # Ensures full name like "nda_name.pdf"
+        part.add_header("Content-Disposition", "attachment", filename=filename)
         msg.attach(part)
 
     try:

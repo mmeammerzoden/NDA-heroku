@@ -53,7 +53,7 @@ In consideration of the MME's disclosure of such Confidential Information, Recip
 IN WITNESS WHEREOF, the parties hereto have executed this Non-Disclosure Agreement by their duly authorized officers or representatives as of the date first set forth above.
 
 MME Houdstermaatschappij B.V.: Bert Rademakers, CEO
-COMPANY NAME: {name}, {title}
+{business}: {name}, {title}
 """
 
 @app.route("/", methods=["GET", "POST"])

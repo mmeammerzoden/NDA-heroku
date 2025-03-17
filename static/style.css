@@ -1,0 +1,113 @@
+/* General styling inspired by eco-friendly, modern biotech branding */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    line-height: 1.6;
+}
+
+h1 {
+    color: #2e5e2e;
+    font-size: 2.5em;
+    margin-bottom: 20px;
+}
+
+h2 {
+    color: #4a704a;
+    font-size: 1.5em;
+    margin-top: 30px;
+}
+
+form {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+label {
+    display: block;
+    margin: 10px 0 5px;
+    font-weight: bold;
+    color: #4a704a;
+}
+
+input[type="text"],
+input[type="email"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1em;
+    box-sizing: border-box;
+}
+
+input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.nda-box {
+    border: 1px solid #2e5e2e;
+    height: 300px;
+    overflow-y: scroll;
+    padding: 15px;
+    margin: 20px 0;
+    background-color: #f9f9f9;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.signature-pad {
+    border: 1px solid #2e5e2e;
+    background-color: #fff;
+    margin: 10px 0;
+}
+
+#clear-signature {
+    background-color: #4a704a;
+    color: #fff;
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 15px;
+}
+
+#clear-signature:hover {
+    background-color: #2e5e2e;
+}
+
+input[type="submit"] {
+    background-color: #2e5e2e;
+    color: #fff;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+input[type="submit"]:hover {
+    background-color: #4a704a;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 20px 10px;
+    }
+    h1 {
+        font-size: 2em;
+    }
+    form {
+        padding: 15px;
+    }
+    .signature-pad {
+        width: 100%;
+        height: 150px;
+    }
+}

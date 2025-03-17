@@ -7,10 +7,15 @@ import base64
 from io import BytesIO
 from PIL import Image
 import os
+import logging
 
 app = Flask(__name__)
 
-# Email configuration from environment variables
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Email configuration
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
@@ -57,47 +62,65 @@ COMPANY NAME: {name}, {title}
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
-        name = request.form["name"]
-        email = request.form["email"]
-        business = request.form["business"]
-        address = request.form["address"]
-        title = request.form["title"]
+        logger.info("Received POST request")
+        name = request.form.get("name")
+        email = request.form.get("email")
+        business = request.form.get("business")
+        address = request.form.get("address")
+        title = request.form.get("title")
         accept = request.form.get("accept")
-        signature_data = request.form["signature"]
+        signature_data = request.form.get("signature")
+
+        logger.info(f"Form data: name={name}, email={email}, accept={accept}, signature={signature_data[:50] if signature_data else None}")
 
         if not accept:
+            logger.error("Accept checkbox not checked")
             return "You must accept the NDA!", 400
-        if not signature_data:
-            return "Please provide a signature!", 400
+        if not signature_data or len(signature_data) < 100:
+            logger.error("Signature data missing or invalid")
+            return "Please provide a valid signature!", 400
 
-        # Customize NDA with user input
-        customized_nda = NDA_TEXT.format(
-            company_name=business,
-            full_address=address,
-            name=name,
-            title=title
-        )
+        # Process signature
+        try:
+            signature_data = signature_data.split(',')[1]
+            signature_img = Image.open(BytesIO(base64.b64decode(signature_data)))
+            signature_path = f"signature_{name}.png"
+            signature_img.save(signature_path, "PNG")
+            logger.info(f"Signature saved: {signature_path}")
+        except Exception as e:
+            logger.error(f"Signature processing failed: {str(e)}")
+            return f"Error processing signature: {str(e)}", 500
 
-        # Convert base64 signature to image
-        signature_data = signature_data.split(',')[1]  # Remove "data:image/png;base64,"
-        signature_img = Image.open(BytesIO(base64.b64decode(signature_data)))
-        signature_path = f"signature_{name}.png"
-        signature_img.save(signature_path, "PNG")
-
-        # Generate PDF with fpdf2
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Arial", size=10)
-        pdf.multi_cell(0, 5, f"Non-Disclosure Agreement\n\nSigned by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}\n\n{customized_nda}")
-        pdf.ln(10)
-        pdf.image(signature_path, x=10, y=pdf.get_y(), w=50)  # Add signature image
-        pdf_file = f"nda_{name}.pdf"
-        pdf.output(pdf_file)
+        # Generate PDF
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=10)
+            pdf.multi_cell(0, 5, f"Non-Disclosure Agreement\n\nSigned by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}\n\n{NDA_TEXT.format(company_name=business, full_address=address, name=name, title=title)}")
+            pdf.ln(10)
+            pdf.image(signature_path, x=10, y=pdf.get_y(), w=50)
+            pdf_file = f"nda_{name}.pdf"
+            pdf.output(pdf_file)
+            logger.info(f"PDF generated: {pdf_file}")
+        except Exception as e:
+            logger.error(f"PDF generation failed: {str(e)}")
+            return f"Error generating PDF: {str(e)}", 500
 
         # Email to client
-        send_email(email, "You have signed the NDA", "Thank you for signing the NDA with MME Houdstermaatschappij. See attached.", pdf_file)
-        # Email to you
-        send_email(EMAIL_ADDRESS, f"{name} signed an NDA", f"{name} from {business} signed the NDA. See attached.", pdf_file)
+        try:
+            send_email(email, "You have signed the NDA", "Thank you for signing the NDA with MME Houdstermaatschappij. See attached.", pdf_file)
+            logger.info(f"Email sent to client: {email}")
+        except Exception as e:
+            logger.error(f"Client email failed: {str(e)}")
+            return f"Error sending email to client: {str(e)}", 500
+
+        # Email to sender
+        try:
+            send_email(EMAIL_ADDRESS, f"{name} signed an NDA", f"{name} from {business} signed the NDA. See attached.", pdf_file)
+            logger.info(f"Email sent to sender: {EMAIL_ADDRESS}")
+        except Exception as e:
+            logger.error(f"Sender email failed: {str(e)}")
+            return f"Error sending email to sender: {str(e)}", 500
 
         return "NDA signed and emailed successfully!"
 
@@ -107,9 +130,8 @@ def send_email(to_email, subject, body, attachment):
     if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
         raise ValueError(f"Email credentials missing: EMAIL_ADDRESS={EMAIL_ADDRESS}, EMAIL_PASSWORD={'set' if EMAIL_PASSWORD else 'not set'}")
 
-    # SMTP server configuration (replace with your details)
     SMTP_HOST = "mail.yourdomain.com"  # Replace with your SMTP host
-    SMTP_PORT = 587  # Replace with your SMTP port (587 for TLS, 465 for SSL)
+    SMTP_PORT = 587  # Replace with your SMTP port
 
     msg = MIMEMultipart()
     msg["From"] = EMAIL_ADDRESS
@@ -119,17 +141,15 @@ def send_email(to_email, subject, body, attachment):
 
     with open(attachment, "rb") as f:
         part = MIMEText(f.read(), "base64", "utf-8")
-        # Explicitly set filename with .pdf extension
-        filename = os.path.basename(attachment)  # Ensures full name like "nda_name.pdf"
+        filename = os.path.basename(attachment)
         part.add_header("Content-Disposition", "attachment", filename=filename)
         msg.attach(part)
 
     try:
-        # Use TLS (port 587 typically)
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-        server.ehlo()  # Initial handshake
-        server.starttls()  # Enable TLS encryption
-        server.ehlo()  # Re-handshake after TLS
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)  # Reduced timeout
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
         server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
         server.send_message(msg)
         server.quit()
@@ -139,5 +159,5 @@ def send_email(to_email, subject, body, attachment):
         raise Exception(f"SMTP error: {str(e)}")
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5000))  # Use Heroku's dynamic port, default to 5000 locally
+    port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)

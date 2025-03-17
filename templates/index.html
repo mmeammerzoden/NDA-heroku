@@ -8,7 +8,7 @@
 </head>
 <body>
     <h1>Sign the NDA with Mycelium Materials Europe</h1>
-    <form method="POST" enctype="multipart/form-data">
+    <form method="POST" enctype="multipart/form-data" id="nda-form">
         <label for="name">Name:</label>
         <input type="text" id="name" name="name" required><br>
         
@@ -38,19 +38,22 @@
     </form>
 
     <script>
-        var canvas = document.getElementById('signature-canvas');
+        var canvas = document.getElementById('signature-pad'); // Match canvas ID
         var signaturePad = new SignaturePad(canvas);
 
-        window.addEventListener('load', function () {
+        // Adjust canvas size on load and resize
+        function resizeCanvas() {
             canvas.width = canvas.offsetWidth;
             canvas.height = canvas.offsetHeight;
-        });
+        }
+        window.addEventListener('load', resizeCanvas);
+        window.addEventListener('resize', resizeCanvas);
 
-        document.getElementById('clear').addEventListener('click', function () {
+        document.getElementById('clear-signature').addEventListener('click', function () { // Match button ID
             signaturePad.clear();
         });
 
-        document.getElementById('nda-form').addEventListener('submit', function (e) {
+        document.getElementById('nda-form').addEventListener('submit', function (e) { // Match form ID
             if (signaturePad.isEmpty()) {
                 alert("Please provide a signature!");
                 e.preventDefault();

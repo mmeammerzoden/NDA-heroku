@@ -99,26 +99,36 @@ def index():
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font("Arial", size=10)
-            # Include the full NDA text with signatory lines
-            pdf.multi_cell(0, 5, f"Non-Disclosure Agreement\n\nSigned by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}\n\n{customized_nda}")
-            pdf.ln(5)  # Small space before signatures
-            
-            # Add Bert's signature below his name
+
+            # MME Houdstermaatschappij B.V. and Bert Rademakers
+            pdf.multi_cell(0, 5, "MME Houdstermaatschappij B.V.: Bert Rademakers, CEO")
+            pdf.ln(5)  # Space before signature
+
+            # Add Bert's signature
             bert_signature_path = os.path.join(app.root_path, 'static', 'bert_signature.png')
             if not os.path.exists(bert_signature_path):
                 logger.error(f"Bert's signature file not found at: {bert_signature_path}")
                 raise FileNotFoundError(f"Bert's signature file missing: {bert_signature_path}")
             logger.info(f"Loading Bert's signature from: {bert_signature_path}")
             pdf.image(bert_signature_path, x=10, y=pdf.get_y(), w=50)
-            pdf.ln(20)  # Space between Bert's and client's signatures
-            
-            # Add client's signature below their name
+            pdf.ln(20)  # Space after Bert's signature
+
+            # Client Info
+            pdf.multi_cell(0, 5, f"Signed by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}")
+            pdf.ln(5)  # Space before signature
+
+            # Add Client's signature
             pdf.image(signature_path, x=10, y=pdf.get_y(), w=50)
             pdf.ln(10)  # Space after client's signature
+
+            # NDA Text
+            pdf.multi_cell(0, 5, f"\n{customized_nda}")
             
+            # Save PDF
             pdf_file = f"nda_{name}.pdf"
             pdf.output(pdf_file)
             logger.info(f"PDF generated: {pdf_file}")
+
         except Exception as e:
             logger.error(f"PDF generation failed: {str(e)}")
             return f"Error generating PDF: {str(e)}", 500

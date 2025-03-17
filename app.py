@@ -134,7 +134,7 @@ def send_email(to_email, subject, body, attachment):
     if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
         raise ValueError(f"Email credentials missing: EMAIL_ADDRESS={EMAIL_ADDRESS}, EMAIL_PASSWORD={'set' if EMAIL_PASSWORD else 'not set'}")
 
-    SMTP_HOST = "mail.yourdomain.com"  # Replace with your SMTP host
+    SMTP_HOST = "server104.yourhosting.nl"  # Replace with your SMTP host
     SMTP_PORT = 587  # Replace with your SMTP port
 
     msg = MIMEMultipart()

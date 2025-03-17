@@ -12,7 +12,7 @@ app = Flask(__name__)
 
 # Email configuration from environment variables
 EMAIL_ADDRESS = os.getenv("mme.ammerzoden.nda@gmail.com")
-EMAIL_PASSWORD = os.getenv("Y~qGw0XTcl?nBr9{")
+EMAIL_PASSWORD = os.getenv("ubil wwbk tfjl hyut")
 
 # Your NDA text
 NDA_TEXT = """

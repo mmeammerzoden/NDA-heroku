@@ -101,12 +101,22 @@ def index():
             pdf.set_font("Arial", size=10)
             pdf.multi_cell(0, 5, f"Non-Disclosure Agreement\n\nSigned by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}\n\n{customized_nda}")
             pdf.ln(10)
-            # Add user's signature
-            pdf.image(signature_path, x=100, y=pdf.get_y(), w=50)
-            pdf.ln(20)  # Space between signatures
-            # Add Bert's signature
+            
+            # Add Bert's name and signature
+            pdf.cell(0, 5, "MME Houdstermaatschappij B.V.: Bert Rademakers, CEO", ln=True)
             bert_signature_path = os.path.join(app.root_path, 'static', 'bert_signature.png')
+            if not os.path.exists(bert_signature_path):
+                logger.error(f"Bert's signature file not found at: {bert_signature_path}")
+                raise FileNotFoundError(f"Bert's signature file missing: {bert_signature_path}")
+            logger.info(f"Loading Bert's signature from: {bert_signature_path}")
             pdf.image(bert_signature_path, x=10, y=pdf.get_y(), w=50)
+            pdf.ln(20)  # Space between Bert's and client's signatures
+            
+            # Add client's name and signature
+            pdf.cell(0, 5, f"{business}: {name}, {title}", ln=True)
+            pdf.image(signature_path, x=10, y=pdf.get_y(), w=50)
+            pdf.ln(10)  # Space after client's signature
+            
             pdf_file = f"nda_{name}.pdf"
             pdf.output(pdf_file)
             logger.info(f"PDF generated: {pdf_file}")
@@ -115,6 +125,7 @@ def index():
             return f"Error generating PDF: {str(e)}", 500
 
         email_success = True
+        
         try:
             send_email(email, "You have signed the NDA", "Thank you for signing the NDA with MME Houdstermaatschappij. See attached.", pdf_file)
             logger.info(f"Email sent to client: {email}")

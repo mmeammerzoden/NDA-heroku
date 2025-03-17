@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
-NDA_TEXT = """
+# Split NDA_TEXT into body and signature section
+NDA_BODY = """
 Non-Disclosure Agreement
 This Non-Disclosure Agreement (this "Agreement") is made as of April 3, 2024, between MME Houdstermaatschappij, a private company organized under the laws of the Netherlands, whose address is Wordragensestraat 36B, 5324 JM Ammerzoden, The Netherlands ("MME"), and {company_name}, a private company organized under the laws of the Netherlands, whose address is {full_address}, The Netherlands ("Recipient"). The following legal entities (and their respective affiliates) shall be deemed to be affiliates of MME: MME Ammerzoden B.V., Mycelium Materials Europe B.V., MME Horst B.V. and Kineco B.V.
 
@@ -49,7 +50,9 @@ In consideration of the MME's disclosure of such Confidential Information, Recip
 9. This Agreement will commence on the date first set forth above and will remain in effect for five (5) years from the date of the last disclosure of Confidential Information by MME, at which time it will terminate; provided, that as to any Confidential Information that the MME maintains as a trade secret, this Agreement will remain in effect for as long such Confidential Information remains a trade secret under applicable law.
 
 10. This Agreement may be executed in multiple counterparts, each of which shall be deemed an original, but all of which together shall constitute one and the same instrument. In making proof of this Agreement, it shall not be necessary to produce or account for more than one such counterpart.
+"""
 
+SIGNATURE_SECTION = """
 IN WITNESS WHEREOF, the parties hereto have executed this Non-Disclosure Agreement by their duly authorized officers or representatives as of the date first set forth above.
 
 MME Houdstermaatschappij B.V.: Bert Rademakers, CEO
@@ -77,13 +80,18 @@ def index():
             logger.error("Signature data missing or invalid")
             return "Please provide a valid signature!", 400
 
-        customized_nda = NDA_TEXT.format(
+        customized_nda_body = NDA_BODY.format(
             company_name=business,
             full_address=address,
             name=name,
             title=title
         )
-        logger.info(f"Customized NDA excerpt: {customized_nda[:100]}")
+        customized_signature_section = SIGNATURE_SECTION.format(
+            company_name=business,
+            name=name,
+            title=title
+        )
+        logger.info(f"Customized NDA excerpt: {customized_nda_body[:100]}")
 
         try:
             signature_data = signature_data.split(',')[1]
@@ -99,11 +107,14 @@ def index():
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font("Arial", size=10)
-
-            # MME Houdstermaatschappij B.V. and Bert Rademakers
-            pdf.multi_cell(0, 5, "MME Houdstermaatschappij B.V.: Bert Rademakers, CEO")
-            pdf.ln(5)  # Space before signature
-
+            # Add NDA body and initial info
+            pdf.multi_cell(0, 5, f"Non-Disclosure Agreement\n\nSigned by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}\n\n{customized_nda_body}")
+            pdf.ln(5)
+            
+            # Add "IN WITNESS WHEREOF" and Bert's name
+            pdf.multi_cell(0, 5, customized_signature_section.split('\n')[0])  # "IN WITNESS WHEREOF..."
+            pdf.cell(0, 5, "MME Houdstermaatschappij B.V.: Bert Rademakers, CEO", ln=True)
+            
             # Add Bert's signature
             bert_signature_path = os.path.join(app.root_path, 'static', 'bert_signature.png')
             if not os.path.exists(bert_signature_path):
@@ -111,30 +122,21 @@ def index():
                 raise FileNotFoundError(f"Bert's signature file missing: {bert_signature_path}")
             logger.info(f"Loading Bert's signature from: {bert_signature_path}")
             pdf.image(bert_signature_path, x=10, y=pdf.get_y(), w=50)
-            pdf.ln(20)  # Space after Bert's signature
-
-            # Client Info
-            pdf.multi_cell(0, 5, f"Signed by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}")
-            pdf.ln(5)  # Space before signature
-
-            # Add Client's signature
+            pdf.ln(20)  # Space between Bert's signature and client's info
+            
+            # Add client's info and signature
+            pdf.cell(0, 5, f"{business}: {name}, {title}", ln=True)
             pdf.image(signature_path, x=10, y=pdf.get_y(), w=50)
             pdf.ln(10)  # Space after client's signature
-
-            # NDA Text
-            pdf.multi_cell(0, 5, f"\n{customized_nda}")
             
-            # Save PDF
             pdf_file = f"nda_{name}.pdf"
             pdf.output(pdf_file)
             logger.info(f"PDF generated: {pdf_file}")
-
         except Exception as e:
             logger.error(f"PDF generation failed: {str(e)}")
             return f"Error generating PDF: {str(e)}", 500
 
         email_success = True
-
         try:
             send_email(email, "You have signed the NDA", "Thank you for signing the NDA with MME Houdstermaatschappij. See attached.", pdf_file)
             logger.info(f"Email sent to client: {email}")
@@ -154,7 +156,7 @@ def index():
         else:
             return "NDA signed, but email sending failed. Please contact support.", 200
 
-    return render_template("index.html", nda_text=NDA_TEXT.format(company_name="COMPANY NAME", full_address="FULL ADDRESS", name="NAME", title="TITLE"))
+    return render_template("index.html", nda_text=NDA_BODY.format(company_name="COMPANY NAME", full_address="FULL ADDRESS", name="NAME", title="TITLE") + SIGNATURE_SECTION.format(company_name="COMPANY NAME", name="NAME", title="TITLE"))
 
 def send_email(to_email, subject, body, attachment):
     if not EMAIL_ADDRESS or not EMAIL_PASSWORD:

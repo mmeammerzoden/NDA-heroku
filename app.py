@@ -68,7 +68,7 @@ def index():
         accept = request.form.get("accept")
         signature_data = request.form.get("signature")
 
-        logger.info(f"Form data: name={name}, email={email}, accept={accept}, signature={signature_data[:50] if signature_data else None}")
+        logger.info(f"Form data: name={name}, email={email}, business={business}, address={address}, title={title}, accept={accept}, signature={signature_data[:50] if signature_data else None}")
 
         if not accept:
             logger.error("Accept checkbox not checked")
@@ -78,11 +78,12 @@ def index():
             return "Please provide a valid signature!", 400
 
         customized_nda = NDA_TEXT.format(
-            company_name=business or "COMPANY NAME",
-            full_address=address or "FULL ADDRESS",
-            name=name or "NAME",
-            title=title or "TITLE"
+            company_name=business,
+            full_address=address,
+            name=name,
+            title=title
         )
+        logger.info(f"Customized NDA excerpt: {customized_nda[:100]}")
 
         try:
             signature_data = signature_data.split(',')[1]
@@ -100,7 +101,12 @@ def index():
             pdf.set_font("Arial", size=10)
             pdf.multi_cell(0, 5, f"Non-Disclosure Agreement\n\nSigned by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}\n\n{customized_nda}")
             pdf.ln(10)
-            pdf.image(signature_path, x=10, y=pdf.get_y(), w=50)
+            # Add user's signature
+            pdf.image(signature_path, x=100, y=pdf.get_y(), w=50)
+            pdf.ln(20)  # Space between signatures
+            # Add Bert's signature
+            bert_signature_path = os.path.join(app.root_path, 'static', 'bert_signature.png')
+            pdf.image(bert_signature_path, x=10, y=pdf.get_y(), w=50)
             pdf_file = f"nda_{name}.pdf"
             pdf.output(pdf_file)
             logger.info(f"PDF generated: {pdf_file}")
@@ -134,8 +140,8 @@ def send_email(to_email, subject, body, attachment):
     if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
         raise ValueError(f"Email credentials missing: EMAIL_ADDRESS={EMAIL_ADDRESS}, EMAIL_PASSWORD={'set' if EMAIL_PASSWORD else 'not set'}")
 
-    SMTP_HOST = "server104.yourhosting.nl"  # Replace with your SMTP host
-    SMTP_PORT = 587  # Replace with your SMTP port
+    SMTP_HOST = "server104.yourhosting.nl"
+    SMTP_PORT = 587
 
     msg = MIMEMultipart()
     msg["From"] = EMAIL_ADDRESS
@@ -153,7 +159,7 @@ def send_email(to_email, subject, body, attachment):
     for attempt in range(max_attempts):
         try:
             logger.info(f"Attempting SMTP connection to {SMTP_HOST}:{SMTP_PORT}, attempt {attempt + 1}/{max_attempts}")
-            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)  # Increased to 15s
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
             server.ehlo()
             logger.info("EHLO successful")
             server.starttls()
@@ -171,9 +177,9 @@ def send_email(to_email, subject, body, attachment):
             raise Exception(f"Authentication failed: {str(e)}")
         except smtplib.SMTPException as e:
             logger.error(f"SMTP error on attempt {attempt + 1}: {str(e)}")
-            if attempt == max_attempts - 1:  # Last attempt
+            if attempt == max_attempts - 1:
                 raise Exception(f"SMTP failed after {max_attempts} attempts: {str(e)}")
-            time.sleep(3)  # Wait 3s before retry
+            time.sleep(3)
         except Exception as e:
             logger.error(f"Unexpected error on attempt {attempt + 1}: {str(e)}")
             if attempt == max_attempts - 1:

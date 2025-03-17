@@ -2,7 +2,7 @@ from flask import Flask, request, render_template
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from fpdf2 import FPDF  # Corrected import
+from fpdf2 import FPDF
 import base64
 from io import BytesIO
 from PIL import Image

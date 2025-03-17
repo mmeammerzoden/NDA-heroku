@@ -8,21 +8,18 @@ from io import BytesIO
 from PIL import Image
 import os
 import logging
+import time
 
 app = Flask(__name__)
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Email configuration
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
-# Your NDA text
 NDA_TEXT = """
 Non-Disclosure Agreement
-
 This Non-Disclosure Agreement (this "Agreement") is made as of April 3, 2024, between MME Houdstermaatschappij, a private company organized under the laws of the Netherlands, whose address is Wordragensestraat 36B, 5324 JM Ammerzoden, The Netherlands ("MME"), and {company_name}, a private company organized under the laws of the Netherlands, whose address is {full_address}, The Netherlands ("Recipient"). The following legal entities (and their respective affiliates) shall be deemed to be affiliates of MME: MME Ammerzoden B.V., Mycelium Materials Europe B.V., MME Horst B.V. and Kineco B.V.
 
 The above named parties desire to have discussions regarding a business opportunity of mutual interest (the "Business Purpose"). In connection with such discussions and such relationship, the parties recognize that there is a need for MME to disclose to Recipient certain Confidential Information (as defined herein) to be used only for the Business Purpose and to protect such Confidential Information from unauthorized use and disclosure.
@@ -80,7 +77,13 @@ def index():
             logger.error("Signature data missing or invalid")
             return "Please provide a valid signature!", 400
 
-        # Process signature
+        customized_nda = NDA_TEXT.format(
+            company_name=business or "COMPANY NAME",
+            full_address=address or "FULL ADDRESS",
+            name=name or "NAME",
+            title=title or "TITLE"
+        )
+
         try:
             signature_data = signature_data.split(',')[1]
             signature_img = Image.open(BytesIO(base64.b64decode(signature_data)))
@@ -91,12 +94,11 @@ def index():
             logger.error(f"Signature processing failed: {str(e)}")
             return f"Error processing signature: {str(e)}", 500
 
-        # Generate PDF
         try:
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font("Arial", size=10)
-            pdf.multi_cell(0, 5, f"Non-Disclosure Agreement\n\nSigned by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}\n\n{NDA_TEXT.format(company_name=business, full_address=address, name=name, title=title)}")
+            pdf.multi_cell(0, 5, f"Non-Disclosure Agreement\n\nSigned by: {name}\nEmail: {email}\nBusiness: {business}\nAddress: {address}\nTitle: {title}\n\n{customized_nda}")
             pdf.ln(10)
             pdf.image(signature_path, x=10, y=pdf.get_y(), w=50)
             pdf_file = f"nda_{name}.pdf"
@@ -106,23 +108,25 @@ def index():
             logger.error(f"PDF generation failed: {str(e)}")
             return f"Error generating PDF: {str(e)}", 500
 
-        # Email to client
+        email_success = True
         try:
             send_email(email, "You have signed the NDA", "Thank you for signing the NDA with MME Houdstermaatschappij. See attached.", pdf_file)
             logger.info(f"Email sent to client: {email}")
         except Exception as e:
             logger.error(f"Client email failed: {str(e)}")
-            return f"Error sending email to client: {str(e)}", 500
+            email_success = False
 
-        # Email to sender
         try:
             send_email(EMAIL_ADDRESS, f"{name} signed an NDA", f"{name} from {business} signed the NDA. See attached.", pdf_file)
             logger.info(f"Email sent to sender: {EMAIL_ADDRESS}")
         except Exception as e:
             logger.error(f"Sender email failed: {str(e)}")
-            return f"Error sending email to sender: {str(e)}", 500
+            email_success = False
 
-        return "NDA signed and emailed successfully!"
+        if email_success:
+            return "NDA signed and emailed successfully!"
+        else:
+            return "NDA signed, but email sending failed. Please contact support.", 200
 
     return render_template("index.html", nda_text=NDA_TEXT.format(company_name="COMPANY NAME", full_address="FULL ADDRESS", name="NAME", title="TITLE"))
 
@@ -145,18 +149,36 @@ def send_email(to_email, subject, body, attachment):
         part.add_header("Content-Disposition", "attachment", filename=filename)
         msg.attach(part)
 
-    try:
-        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)  # Reduced timeout
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-        server.send_message(msg)
-        server.quit()
-    except smtplib.SMTPAuthenticationError as e:
-        raise Exception(f"Authentication failed: {str(e)}")
-    except smtplib.SMTPException as e:
-        raise Exception(f"SMTP error: {str(e)}")
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        try:
+            logger.info(f"Attempting SMTP connection to {SMTP_HOST}:{SMTP_PORT}, attempt {attempt + 1}/{max_attempts}")
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)  # Increased to 15s
+            server.ehlo()
+            logger.info("EHLO successful")
+            server.starttls()
+            logger.info("STARTTLS successful")
+            server.ehlo()
+            server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            logger.info("Login successful")
+            server.send_message(msg)
+            logger.info("Message sent")
+            server.quit()
+            logger.info(f"Email sent successfully to {to_email}")
+            break
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"SMTP authentication error: {str(e)}")
+            raise Exception(f"Authentication failed: {str(e)}")
+        except smtplib.SMTPException as e:
+            logger.error(f"SMTP error on attempt {attempt + 1}: {str(e)}")
+            if attempt == max_attempts - 1:  # Last attempt
+                raise Exception(f"SMTP failed after {max_attempts} attempts: {str(e)}")
+            time.sleep(3)  # Wait 3s before retry
+        except Exception as e:
+            logger.error(f"Unexpected error on attempt {attempt + 1}: {str(e)}")
+            if attempt == max_attempts - 1:
+                raise Exception(f"Unexpected error after {max_attempts} attempts: {str(e)}")
+            time.sleep(3)
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))

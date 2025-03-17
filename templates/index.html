@@ -1,93 +1,49 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>NDA Signing - Mycelium Materials Europe</title>
+    <title>NDA Signing</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
 </head>
 <body>
-    <h1>Sign the NDA with Mycelium Materials Europe</h1>
-    <form method="POST" enctype="multipart/form-data">
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name" required><br>
-        
-        <label for="email">Email:</label>
-        <input type="email" id="email" name="email" required><br>
-        
-        <label for="business">Business Name:</label>
-        <input type="text" id="business" name="business" required><br>
-        
-        <label for="address">Full Address:</label>
-        <input type="text" id="address" name="address" required><br>
-        
-        <label for="title">Title:</label>
-        <input type="text" id="title" name="title" required><br>
-        
-        <h2>Non-Disclosure Agreement</h2>
-        <div class="nda-box">{{ nda_text }}</div>
-        
-        <label><input type="checkbox" name="accept" required> I accept the NDA</label><br>
-        
-        <h2>Draw Your Signature</h2>
-        <canvas id="signature-pad" class="signature-pad" width="400" height="200"></canvas><br>
-        <button type="button" id="clear-signature">Clear Signature</button>
+    <h1>Sign the NDA</h1>
+    <form method="POST" action="/" id="nda-form">
+        <label>Name: <input type="text" name="name" required></label><br>
+        <label>Email: <input type="email" name="email" required></label><br>
+        <label>Business: <input type="text" name="business" required></label><br>
+        <label>Address: <input type="text" name="address" required></label><br>
+        <label>Title: <input type="text" name="title" required></label><br>
+        <label>Accept NDA: <input type="checkbox" name="accept" required></label><br>
+        <div id="signature-pad" style="border: 1px solid black; width: 400px; height: 200px;">
+            <canvas id="signature-canvas" width="400" height="200"></canvas>
+        </div>
+        <button type="button" id="clear">Clear Signature</button><br>
         <input type="hidden" name="signature" id="signature-data">
-
         <input type="submit" value="Sign and Submit">
     </form>
 
     <script>
-        const canvas = document.getElementById('signature-pad');
-        const ctx = canvas.getContext('2d');
-        let drawing = false;
+        var canvas = document.getElementById('signature-canvas');
+        var signaturePad = new SignaturePad(canvas);
 
-        // Set canvas styling
-        ctx.strokeStyle = '#2e5e2e'; // Match branding green
-        ctx.lineWidth = 2;
-
-        // Mouse events
-        canvas.addEventListener('mousedown', () => drawing = true);
-        canvas.addEventListener('mouseup', () => drawing = false);
-        canvas.addEventListener('mousemove', draw);
-
-        // Touch events for mobile
-        canvas.addEventListener('touchstart', (e) => {
-            drawing = true;
-            e.preventDefault();
+        // Adjust canvas size on load
+        window.addEventListener('load', function () {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
         });
-        canvas.addEventListener('touchend', () => drawing = false);
-        canvas.addEventListener('touchmove', drawTouch);
 
-        function draw(event) {
-            if (!drawing) return;
-            ctx.beginPath();
-            ctx.moveTo(event.offsetX, event.offsetY);
-            ctx.lineTo(event.offsetX, event.offsetY);
-            ctx.stroke();
-            updateSignatureData();
-        }
+        document.getElementById('clear').addEventListener('click', function () {
+            signaturePad.clear();
+        });
 
-        function drawTouch(event) {
-            if (!drawing) return;
-            const rect = canvas.getBoundingClientRect();
-            const touch = event.touches[0];
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            updateSignatureData();
-        }
-
-        function updateSignatureData() {
-            const dataURL = canvas.toDataURL('image/png');
-            document.getElementById('signature-data').value = dataURL;
-        }
-
-        document.getElementById('clear-signature').addEventListener('click', () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('signature-data').value = '';
+        document.getElementById('nda-form').addEventListener('submit', function (e) {
+            if (signaturePad.isEmpty()) {
+                alert("Please provide a signature!");
+                e.preventDefault();
+            } else {
+                document.getElementById('signature-data').value = signaturePad.toDataURL('image/png');
+                console.log("Signature captured:", document.getElementById('signature-data').value.substring(0, 50)); // Debug
+            }
         });
     </script>
 </body>
